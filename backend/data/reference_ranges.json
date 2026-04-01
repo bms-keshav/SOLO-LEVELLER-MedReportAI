@@ -1,0 +1,146 @@
+{
+  "hemoglobin": {
+    "min": 12.0,
+    "max": 16.0,
+    "unit": "g/dL",
+    "display_name": "Hemoglobin"
+  },
+  "hb": {
+    "min": 12.0,
+    "max": 16.0,
+    "unit": "g/dL",
+    "display_name": "Hemoglobin"
+  },
+  "glucose": {
+    "min": 70.0,
+    "max": 100.0,
+    "unit": "mg/dL",
+    "display_name": "Glucose (Fasting)"
+  },
+  "fasting_glucose": {
+    "min": 70.0,
+    "max": 100.0,
+    "unit": "mg/dL",
+    "display_name": "Glucose (Fasting)"
+  },
+  "blood_glucose": {
+    "min": 70.0,
+    "max": 100.0,
+    "unit": "mg/dL",
+    "display_name": "Glucose"
+  },
+  "cholesterol": {
+    "min": 0.0,
+    "max": 200.0,
+    "unit": "mg/dL",
+    "display_name": "Total Cholesterol"
+  },
+  "total_cholesterol": {
+    "min": 0.0,
+    "max": 200.0,
+    "unit": "mg/dL",
+    "display_name": "Total Cholesterol"
+  },
+  "ldl": {
+    "min": 0.0,
+    "max": 100.0,
+    "unit": "mg/dL",
+    "display_name": "LDL Cholesterol"
+  },
+  "ldl_cholesterol": {
+    "min": 0.0,
+    "max": 100.0,
+    "unit": "mg/dL",
+    "display_name": "LDL Cholesterol"
+  },
+  "hdl": {
+    "min": 40.0,
+    "max": 999.0,
+    "unit": "mg/dL",
+    "display_name": "HDL Cholesterol"
+  },
+  "hdl_cholesterol": {
+    "min": 40.0,
+    "max": 999.0,
+    "unit": "mg/dL",
+    "display_name": "HDL Cholesterol"
+  },
+  "triglycerides": {
+    "min": 0.0,
+    "max": 150.0,
+    "unit": "mg/dL",
+    "display_name": "Triglycerides"
+  },
+  "creatinine": {
+    "min": 0.6,
+    "max": 1.2,
+    "unit": "mg/dL",
+    "display_name": "Creatinine"
+  },
+  "wbc": {
+    "min": 4.0,
+    "max": 11.0,
+    "unit": "10^3/μL",
+    "display_name": "White Blood Cells"
+  },
+  "white_blood_cells": {
+    "min": 4.0,
+    "max": 11.0,
+    "unit": "10^3/μL",
+    "display_name": "White Blood Cells"
+  },
+  "rbc": {
+    "min": 4.5,
+    "max": 5.5,
+    "unit": "10^6/μL",
+    "display_name": "Red Blood Cells"
+  },
+  "red_blood_cells": {
+    "min": 4.5,
+    "max": 5.5,
+    "unit": "10^6/μL",
+    "display_name": "Red Blood Cells"
+  },
+  "platelets": {
+    "min": 150.0,
+    "max": 400.0,
+    "unit": "10^3/μL",
+    "display_name": "Platelets"
+  },
+  "tsh": {
+    "min": 0.4,
+    "max": 4.0,
+    "unit": "mIU/L",
+    "display_name": "TSH (Thyroid)"
+  },
+  "alt": {
+    "min": 7.0,
+    "max": 56.0,
+    "unit": "U/L",
+    "display_name": "ALT (Liver)"
+  },
+  "ast": {
+    "min": 10.0,
+    "max": 40.0,
+    "unit": "U/L",
+    "display_name": "AST (Liver)"
+  },
+  "hba1c": {
+    "min": 0.0,
+    "max": 5.7,
+    "unit": "%",
+    "display_name": "HbA1c"
+  },
+  "vitamin_d": {
+    "min": 30.0,
+    "max": 100.0,
+    "unit": "ng/mL",
+    "display_name": "Vitamin D"
+  },
+  "vitamin_b12": {
+    "min": 200.0,
+    "max": 900.0,
+    "unit": "pg/mL",
+    "display_name": "Vitamin B12"
+  }
+}

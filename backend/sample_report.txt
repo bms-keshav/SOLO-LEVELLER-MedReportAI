@@ -1,0 +1,39 @@
+LABORATORY REPORT
+
+Patient Name: John Doe
+Date: January 15, 2025
+Doctor: Dr. Smith
+
+HEMATOLOGY TESTS:
+==================
+Hemoglobin: 11.2 g/dL
+White Blood Cells: 7.5 10^3/μL
+Red Blood Cells: 4.8 10^6/μL
+Platelets: 250 10^3/μL
+
+BIOCHEMISTRY:
+=============
+Glucose (Fasting): 105 mg/dL
+Total Cholesterol: 220 mg/dL
+LDL Cholesterol: 140 mg/dL
+HDL Cholesterol: 45 mg/dL
+Triglycerides: 160 mg/dL
+Creatinine: 0.9 mg/dL
+
+LIVER FUNCTION:
+===============
+ALT: 42 U/L
+AST: 35 U/L
+
+THYROID:
+========
+TSH: 2.5 mIU/L
+
+VITAMINS:
+=========
+Vitamin D: 25 ng/mL
+Vitamin B12: 350 pg/mL
+
+--- End of Report ---
+
+Note: This is a sample lab report for testing purposes.
