@@ -94,7 +94,7 @@ frontend/
 
 ### Error Handling
 - Network errors (backend unreachable)
-- Timeout errors (60s timeout)
+- Timeout errors (120s timeout)
 - Server errors (500, etc.)
 - File validation errors
 - Auto-dismissal after 5 seconds
@@ -153,19 +153,21 @@ FormData {
   urgency_level: 'Normal' | 'Monitor' | 'Consult Doctor'
   summary: string
   results: Array<{
-    name: string
-    value: string
+    parameter: string
+    value: number
     unit: string
-    status: 'Normal' | 'High' | 'Low'
-    ai_explanation: string
+    status: 'normal' | 'high' | 'low'
+    explanation: string
   }>
   recommended_questions: string[]
 }
 ```
 
+Note: The frontend also accepts legacy keys (`name`, `ai_explanation`) for compatibility.
+
 ### Error Handling
 - Axios interceptors for global errors
-- Timeout: 60 seconds
+- Timeout: 120 seconds
 - CORS enabled on backend
 - Retry logic not implemented (graceful failure instead)
 

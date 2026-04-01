@@ -136,11 +136,11 @@ Body: file (PDF/JPG/PNG)
   "summary": "Overall analysis...",
   "results": [
     {
-      "name": "Biomarker Name",
-      "value": "123",
+      "parameter": "Biomarker Name",
+      "value": 123,
       "unit": "mg/dL",
-      "status": "Normal" | "High" | "Low",
-      "ai_explanation": "..."
+      "status": "normal" | "high" | "low",
+      "explanation": "..."
     }
   ],
   "recommended_questions": ["Question 1?", "..."]
