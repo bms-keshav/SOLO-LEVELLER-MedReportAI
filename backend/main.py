@@ -3,6 +3,7 @@ MedReport AI - FastAPI Backend
 Main application entry point
 """
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,25 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def _get_allowed_origins() -> list[str]:
+    """
+    Build CORS allowlist from env with safe local defaults.
+
+    Expected format:
+        ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app
+    """
+    raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    # Avoid invalid wildcard + credentials combination in production configs.
+    origins = [origin for origin in origins if origin != "*"]
+
+    if not origins:
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    return origins
 
 
 @asynccontextmanager
@@ -43,11 +63,14 @@ app = FastAPI(
 )
 
 # Configure CORS
+allowed_origins = _get_allowed_origins()
+logger.info(f"Configured CORS allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 

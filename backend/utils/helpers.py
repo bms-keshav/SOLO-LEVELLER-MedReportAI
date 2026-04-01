@@ -3,6 +3,7 @@ Utility functions for file processing and data formatting
 """
 import io
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -73,9 +74,10 @@ def parse_numeric_value(value: str) -> Optional[float]:
     Parse numeric value from string, handling common formats.
 
     Provides robust validation to prevent crashes from invalid input.
+    Uses regex extraction to safely pull numbers even if units are mixed in.
 
     Args:
-        value: Value as string (e.g., "11.2", "<5.0", ">100")
+        value: Value as string (e.g., "11.2", "<5.0", ">100", "11.2 mg")
 
     Returns:
         Numeric value or None if parsing fails
@@ -92,6 +94,7 @@ def parse_numeric_value(value: str) -> Optional[float]:
             logger.warning("Cannot parse empty string")
             return None
 
+        # Remove common prefix symbols
         clean_value = value.strip()
         clean_value = clean_value.replace("<", "").replace(">", "").replace("~", "")
         clean_value = clean_value.replace("+-", "").replace("approx", "").replace("about", "")
@@ -101,7 +104,13 @@ def parse_numeric_value(value: str) -> Optional[float]:
             logger.warning(f"Value '{value}' became empty after cleaning")
             return None
 
-        parsed_value = float(clean_value)
+        # NEW: Use regex to safely extract numeric part (handles "11.2 mg" → 11.2)
+        match = re.search(r"[-+]?\d*\.?\d+", clean_value)
+        if not match:
+            logger.warning(f"Could not find numeric value in '{value}'")
+            return None
+
+        parsed_value = float(match.group())
 
         if parsed_value != parsed_value:
             logger.warning(f"Parsed value is NaN from input: {value}")

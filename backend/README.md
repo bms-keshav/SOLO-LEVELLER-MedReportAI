@@ -45,6 +45,9 @@ Create a `.env` file:
 
 ```
 GEMINI_API_KEY=your_gemini_api_key_here
+ALLOWED_ORIGINS=http://localhost:3000
+# MAX_FILE_SIZE_BYTES=10485760
+# GEMINI_MODEL=gemini-2.0-flash
 ```
 
 Get your Gemini API key from: https://ai.google.dev/
@@ -157,6 +160,7 @@ The API returns appropriate HTTP status codes:
 
 - `200` - Success
 - `400` - Invalid file type or format
+- `413` - Uploaded file exceeds max allowed size
 - `422` - Processing error (no values found)
 - `500` - Server error
 
@@ -178,7 +182,13 @@ Logs are written to stdout with timestamps and log levels:
 
 ## Testing
 
-Test with curl:
+Run automated tests:
+
+```bash
+pytest -q
+```
+
+Quick API test with curl:
 
 ```bash
 curl -X POST http://localhost:8000/api/analyze-report \

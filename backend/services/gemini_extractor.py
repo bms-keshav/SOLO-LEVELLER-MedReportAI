@@ -65,67 +65,36 @@ class GeminiExtractor:
 
     def _select_model_name(self) -> str:
         """
-        Select a model that is actually available for generateContent.
+        Select Gemini model name.
 
         Priority:
         1) GEMINI_MODEL env override
-        2) Preferred models present in list_models()
-        3) Any available model supporting generateContent
+        2) Stable default
         """
         env_model = os.getenv("GEMINI_MODEL", "").strip()
         if env_model:
             logger.info(f"Using GEMINI_MODEL override: {env_model}")
             return env_model
 
-        preferred_models = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro-latest",
-        ]
-
-        try:
-            available = []
-            for model in genai.list_models():
-                methods = set(getattr(model, "supported_generation_methods", []) or [])
-                if "generateContent" not in methods:
-                    continue
-
-                model_name = getattr(model, "name", "")
-                if model_name.startswith("models/"):
-                    model_name = model_name.split("/", 1)[1]
-                if model_name:
-                    available.append(model_name)
-
-            for preferred in preferred_models:
-                if preferred in available:
-                    return preferred
-
-            if available:
-                return available[0]
-
-        except Exception as e:
-            logger.warning(f"Could not list Gemini models dynamically: {e}")
-
-        # Safe fallback that works on most current accounts.
+        # Deterministic default for demo reliability.
         return "gemini-2.0-flash"
 
-    def extract_from_image(self, image_bytes: bytes) -> List[ExtractedLabValue]:
+    def extract_from_image(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> List[ExtractedLabValue]:
         """
         Extract lab values from image file
 
         Args:
             image_bytes: Image file as bytes
+            mime_type: MIME type of the image (e.g., "image/jpeg", "image/png")
 
         Returns:
             List of extracted lab values
         """
         try:
-            # Detect image format (default to jpeg if unknown)
+            # Use the provided MIME type (caller should pass the correct one)
             image_parts = [
                 {
-                    "mime_type": "image/jpeg",
+                    "mime_type": mime_type,
                     "data": image_bytes
                 }
             ]
@@ -434,6 +403,13 @@ Extract all lab parameters you find in this report. Return ONLY the JSON object.
                 extracted.append(ExtractedLabValue(name=display_name, value=value, unit=unit))
 
         return extracted
+
+    def extract_from_text_regex_fallback(self, text: str) -> List[ExtractedLabValue]:
+        """
+        Public wrapper for deterministic regex-based extraction.
+        Useful when API quota is exceeded and we still want best-effort parsing.
+        """
+        return self._extract_from_text_regex(text)
 
     def _fallback_extraction(self, error_msg: str) -> List[ExtractedLabValue]:
         """

@@ -59,43 +59,16 @@ class AIExplainer:
 
     def _select_model_name(self) -> str:
         """
-        Select an available Gemini model for generateContent.
+        Select Gemini model name.
+
+        Priority:
+        1) GEMINI_MODEL env override
+        2) Stable default
         """
         env_model = os.getenv("GEMINI_MODEL", "").strip()
         if env_model:
             logger.info(f"Using GEMINI_MODEL override: {env_model}")
             return env_model
-
-        preferred_models = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro-latest",
-        ]
-
-        try:
-            available = []
-            for model in genai.list_models():
-                methods = set(getattr(model, "supported_generation_methods", []) or [])
-                if "generateContent" not in methods:
-                    continue
-
-                model_name = getattr(model, "name", "")
-                if model_name.startswith("models/"):
-                    model_name = model_name.split("/", 1)[1]
-                if model_name:
-                    available.append(model_name)
-
-            for preferred in preferred_models:
-                if preferred in available:
-                    return preferred
-
-            if available:
-                return available[0]
-
-        except Exception as e:
-            logger.warning(f"Could not list Gemini models dynamically: {e}")
 
         return "gemini-2.0-flash"
 

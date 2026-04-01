@@ -25,8 +25,9 @@ API routes for report analysis
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 import logging
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
+import os
+from functools import lru_cache
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 
 from models.schemas import AnalysisResponse, AnalyzedResult
 from services.gemini_extractor import GeminiExtractor
@@ -43,36 +44,101 @@ from utils.helpers import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Initialize services lazily so the API can still boot and expose /health
-# even when Gemini configuration is missing or temporarily invalid.
-gemini_extractor = None
-rule_engine = None
-ai_explainer = None
+DEFAULT_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+READ_CHUNK_SIZE_BYTES = 1024 * 1024  # 1MB
 
 
+def _get_max_file_size_bytes() -> int:
+    """
+    Read file-size limit from environment with a safe fallback.
+    """
+    raw_value = os.getenv("MAX_FILE_SIZE_BYTES", str(DEFAULT_MAX_FILE_SIZE_BYTES)).strip()
+    try:
+        parsed = int(raw_value)
+    except ValueError:
+        logger.warning(
+            f"Invalid MAX_FILE_SIZE_BYTES='{raw_value}', using default {DEFAULT_MAX_FILE_SIZE_BYTES}"
+        )
+        return DEFAULT_MAX_FILE_SIZE_BYTES
+
+    if parsed <= 0:
+        logger.warning(
+            f"MAX_FILE_SIZE_BYTES must be positive, using default {DEFAULT_MAX_FILE_SIZE_BYTES}"
+        )
+        return DEFAULT_MAX_FILE_SIZE_BYTES
+
+    return parsed
+
+
+MAX_FILE_SIZE_BYTES = _get_max_file_size_bytes()
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """
+    Detect Gemini quota/rate-limit failures from provider SDK exceptions.
+    """
+    message = str(exc).lower()
+    rate_limit_markers = [
+        "429 ",
+        " 429",
+        "status code 429",
+        "quota exceeded",
+        "resource_exhausted",
+        "resource has been exhausted",
+        "rate limit exceeded",
+        "rate limit",
+        "too many requests",
+    ]
+    return any(marker in message for marker in rate_limit_markers)
+
+
+@lru_cache
 def get_gemini_extractor() -> GeminiExtractor:
-    global gemini_extractor
-    if gemini_extractor is None:
-        gemini_extractor = GeminiExtractor()  # AI for extraction only
-    return gemini_extractor
+    return GeminiExtractor()  # AI for extraction only
 
 
+@lru_cache
 def get_rule_engine() -> RuleEngine:
-    global rule_engine
-    if rule_engine is None:
-        rule_engine = RuleEngine()  # NO AI - deterministic classification
-    return rule_engine
+    return RuleEngine()  # NO AI - deterministic classification
 
 
+@lru_cache
 def get_ai_explainer() -> AIExplainer:
-    global ai_explainer
-    if ai_explainer is None:
-        ai_explainer = AIExplainer()  # AI for explanations only
-    return ai_explainer
+    return AIExplainer()  # AI for explanations only
+
+
+async def _read_upload_with_limit(file: UploadFile, max_size_bytes: int) -> bytes:
+    """
+    Read upload content safely in chunks to enforce server-side size limits.
+    """
+    total_size = 0
+    chunks = []
+
+    while True:
+        chunk = await file.read(READ_CHUNK_SIZE_BYTES)
+        if not chunk:
+            break
+
+        total_size += len(chunk)
+        if total_size > max_size_bytes:
+            max_mb = max_size_bytes // (1024 * 1024)
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum allowed size is {max_mb}MB."
+            )
+
+        chunks.append(chunk)
+
+    return b"".join(chunks)
 
 
 @router.post("/analyze-report", response_model=AnalysisResponse)
-async def analyze_report(file: UploadFile = File(...)):
+async def analyze_report(
+    file: UploadFile = File(...),
+    extractor: GeminiExtractor = Depends(get_gemini_extractor),
+    rules: RuleEngine = Depends(get_rule_engine),
+    explainer: AIExplainer = Depends(get_ai_explainer),
+):
     """
     Analyze a medical lab report (PDF or image)
 
@@ -91,15 +157,15 @@ async def analyze_report(file: UploadFile = File(...)):
         AnalysisResponse with structured results and explanations
     """
     try:
-        extractor = get_gemini_extractor()
-        rules = get_rule_engine()
-        explainer = get_ai_explainer()
+        filename = file.filename or "uploaded_file"
 
-        # Read file content
-        file_content = await file.read()
-        file_type = determine_file_type(file.filename)
+        # Read file content with backend-side size enforcement.
+        file_content = await _read_upload_with_limit(file, MAX_FILE_SIZE_BYTES)
+        file_type = determine_file_type(filename)
 
-        logger.info(f"Processing file: {file.filename} (type: {file_type})")
+        logger.info(
+            f"Processing file: {filename} (type: {file_type}, size_bytes: {len(file_content)})"
+        )
 
         # Validate file type
         if file_type == 'unknown':
@@ -116,26 +182,66 @@ async def analyze_report(file: UploadFile = File(...)):
         # ═══════════════════════════════════════════════════════════════
         logger.info("Step 1: Extracting lab values using Gemini API (extraction only, no classification)...")
 
-        if file_type == 'pdf':
-            text = extract_text_from_pdf(file_content)
+        try:
+            if file_type == 'pdf':
+                text = extract_text_from_pdf(file_content)
 
-            # Prefer text extraction for digital PDFs, but fall back to direct
-            # PDF multimodal extraction for scanned/image-based reports.
-            if text and len(text.strip()) >= 30:
-                try:
-                    extracted_values = extractor.extract_from_text(text)
-                except Exception as text_error:
-                    logger.warning(
-                        f"Text-based PDF extraction failed ({text_error}); trying direct PDF extraction"
-                    )
+                # Prefer text extraction for digital PDFs, but fall back to direct
+                # PDF multimodal extraction for scanned/image-based reports.
+                if text and len(text.strip()) >= 30:
+                    try:
+                        extracted_values = extractor.extract_from_text(text)
+                    except Exception as text_error:
+                        logger.warning(
+                            f"Text-based PDF extraction failed ({text_error}); trying direct PDF extraction"
+                        )
+                        extracted_values = extractor.extract_from_pdf(file_content)
+                else:
+                    logger.info("PDF appears scanned or has minimal text; using direct PDF extraction")
                     extracted_values = extractor.extract_from_pdf(file_content)
+            else:  # image
+                if not validate_image(file_content):
+                    raise HTTPException(status_code=400, detail="Invalid image file")
+                # Pass the actual content_type from the uploaded file (e.g., "image/png", "image/jpeg")
+                mime_type = file.content_type or "image/jpeg"
+                extracted_values = extractor.extract_from_image(file_content, mime_type=mime_type)
+        except HTTPException:
+            raise
+        except Exception as extraction_error:
+            logger.error(f"Gemini extraction failed: {str(extraction_error)}")
+            if _is_rate_limit_error(extraction_error):
+                # Best-effort fallback for text-based PDFs when Gemini quota is hit.
+                if file_type == "pdf":
+                    try:
+                        fallback_text = extract_text_from_pdf(file_content)
+                        regex_results = extractor.extract_from_text_regex_fallback(fallback_text)
+                        if regex_results:
+                            logger.warning(
+                                "Gemini quota exceeded during extraction; using regex fallback for PDF text"
+                            )
+                            extracted_values = regex_results
+                        else:
+                            raise HTTPException(
+                                status_code=429,
+                                detail="AI Analysis quota exceeded. Please wait a minute and try again, or use the Load Sample Data button."
+                            )
+                    except HTTPException:
+                        raise
+                    except Exception:
+                        raise HTTPException(
+                            status_code=429,
+                            detail="AI Analysis quota exceeded. Please wait a minute and try again, or use the Load Sample Data button."
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="AI Analysis quota exceeded. Please wait a minute and try again, or use the Load Sample Data button."
+                    )
             else:
-                logger.info("PDF appears scanned or has minimal text; using direct PDF extraction")
-                extracted_values = extractor.extract_from_pdf(file_content)
-        else:  # image
-            if not validate_image(file_content):
-                raise HTTPException(status_code=400, detail="Invalid image file")
-            extracted_values = extractor.extract_from_image(file_content)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Extraction failed: {str(extraction_error)}"
+                )
 
         logger.info(f"Extracted {len(extracted_values)} lab values (raw data only, not classified)")
 
@@ -331,10 +437,19 @@ async def analyze_report(file: UploadFile = File(...)):
         logger.info(f"Step 3: Generating explanations in ONE batched API call for {len(abnormal_results_for_ai)} abnormal results...")
 
         # Make single batched API call
-        ai_response = explainer.batch_explain_all(
-            abnormal_results=abnormal_results_for_ai,
-            total_count=len(classified_results)
-        )
+        try:
+            ai_response = explainer.batch_explain_all(
+                abnormal_results=abnormal_results_for_ai,
+                total_count=len(classified_results)
+            )
+        except Exception as explanation_error:
+            logger.error(f"Gemini explanation failed: {str(explanation_error)}")
+            if _is_rate_limit_error(explanation_error):
+                raise HTTPException(
+                    status_code=429,
+                    detail="AI Analysis quota exceeded. Please wait a minute and try again, or use the Load Sample Data button."
+                )
+            raise
 
         # Extract components from AI response
         explanations_map = ai_response["explanations"]

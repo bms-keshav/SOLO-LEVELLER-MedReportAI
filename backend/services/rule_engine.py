@@ -99,35 +99,37 @@ class RuleEngine:
 
     def _resolve_parameter_key(self, parameter: str) -> Optional[str]:
         """
-        Resolve input parameter to a reference key using safe normalization/fuzzy matching.
+        Resolve input parameter to a reference key using exact matching and aliases.
         Example: 'Hemoglobin (Hb)' -> 'hemoglobin' or 'hb'.
         """
         try:
             if not parameter or not isinstance(parameter, str):
                 return None
 
-            normalized_name = normalize_parameter_name(parameter)
-            if normalized_name in self.reference_ranges:
-                return normalized_name
+            candidate_keys = []
 
-            # Remove parenthetical content and retry.
+            # 1) Exact normalized input
+            normalized_name = normalize_parameter_name(parameter)
+            candidate_keys.append(normalized_name)
+
+            # 2) Exact normalized name after removing parenthetical content.
             no_parens = re.sub(r"\([^)]*\)", "", parameter)
             normalized_no_parens = normalize_parameter_name(no_parens)
-            if normalized_no_parens in self.reference_ranges:
-                return normalized_no_parens
+            candidate_keys.append(normalized_no_parens)
 
-            # Try extracting aliases inside parentheses, e.g., (Hb).
+            # 3) Aliases inside parentheses, e.g., (Hb)
             paren_parts = re.findall(r"\(([^)]*)\)", parameter)
             for part in paren_parts:
                 alias = normalize_parameter_name(part)
-                if alias in self.reference_ranges:
-                    return alias
+                candidate_keys.append(alias)
 
-            # Fuzzy fallback: containment match on normalized keys.
-            compact = normalized_name.replace("_", "")
-            for key in self.reference_ranges.keys():
-                key_compact = key.replace("_", "")
-                if key_compact in compact or compact in key_compact:
+            # 4) De-duplicated exact checks only (no containment-based fuzzy matching).
+            seen = set()
+            for key in candidate_keys:
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                if key in self.reference_ranges:
                     return key
 
             return None

@@ -165,11 +165,13 @@ const MOCK_RESPONSE: AnalysisResult = {
 export default function Home() {
   const [appState, setAppState] = useState<AppState>('idle')
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0])
+  const [showWakeupHint, setShowWakeupHint] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wakeupHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearPendingTimers = useCallback(() => {
     if (resetTimerRef.current) {
@@ -179,6 +181,10 @@ export default function Home() {
     if (demoTimerRef.current) {
       clearTimeout(demoTimerRef.current)
       demoTimerRef.current = null
+    }
+    if (wakeupHintTimerRef.current) {
+      clearTimeout(wakeupHintTimerRef.current)
+      wakeupHintTimerRef.current = null
     }
   }, [])
 
@@ -229,6 +235,12 @@ export default function Home() {
 
     setAppState('loading')
     setErrorMessage('')
+    setShowWakeupHint(false)
+
+    wakeupHintTimerRef.current = setTimeout(() => {
+      setShowWakeupHint(true)
+      wakeupHintTimerRef.current = null
+    }, 15000)
 
     const formData = new FormData()
     formData.append('file', file)
@@ -241,13 +253,18 @@ export default function Home() {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
-          timeout: 60000, // 60 second timeout
+          timeout: 120000, // 120 second timeout for cold starts
         }
       )
 
+      clearPendingTimers()
+      setShowWakeupHint(false)
       setAnalysisResult(normalizeAnalysisResult(response.data))
       setAppState('success')
     } catch (error) {
+      clearPendingTimers()
+      setShowWakeupHint(false)
+
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNABORTED') {
           setErrorMessage('Request timed out. Please try again.')
@@ -272,12 +289,12 @@ export default function Home() {
     }
   }
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files[0]
     if (file) handleFileUpload(file)
-  }, [])
+  }
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -296,6 +313,7 @@ export default function Home() {
 
   const loadDemoData = () => {
     clearPendingTimers()
+    setShowWakeupHint(false)
     setAppState('loading')
     demoTimerRef.current = setTimeout(() => {
       setAnalysisResult(MOCK_RESPONSE)
@@ -306,6 +324,7 @@ export default function Home() {
 
   const resetApp = () => {
     clearPendingTimers()
+    setShowWakeupHint(false)
     setAppState('idle')
     setAnalysisResult(null)
     setErrorMessage('')
@@ -423,6 +442,11 @@ export default function Home() {
             <p className="mt-6 text-xl font-medium text-gray-700 animate-pulse">
               {loadingMessage}
             </p>
+            {showWakeupHint && (
+              <p className="mt-3 text-sm text-gray-500">
+                Waking up server and AI services. This can take up to a minute on first request.
+              </p>
+            )}
           </div>
         )}
 

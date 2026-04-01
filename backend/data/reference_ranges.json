@@ -131,6 +131,18 @@
     "unit": "%",
     "display_name": "HbA1c"
   },
+  "hemoglobin_a1c": {
+    "min": 0.0,
+    "max": 5.7,
+    "unit": "%",
+    "display_name": "HbA1c"
+  },
+  "glycated_hemoglobin": {
+    "min": 0.0,
+    "max": 5.7,
+    "unit": "%",
+    "display_name": "HbA1c"
+  },
   "vitamin_d": {
     "min": 30.0,
     "max": 100.0,
